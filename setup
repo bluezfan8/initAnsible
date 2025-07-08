@@ -63,8 +63,11 @@ installAnsible() {
 
 									# Initialize Ansible directory with Git
 									#git init --shared "$ANSIBLE_INSTALL_GIT_SHARED" -b "$ANSIBLE_INSTALL_GIT_BRANCH" "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									git config user.email "$ANSIBLE_INSTALL_GIT_USEREMAIL" --global
+									git config user.name "$ANSIBLE_INSTALL_GIT_USERNAME" --global
+									git config --global --add safe.directory /etc/ansible
 									
-									e
+	
 									git init -b "$ANSIBLE_INSTALL_GIT_BRANCH" "$ANSIBLE_INSTALL_ANSIBLE_DIR"
 									git add "$ANSIBLE_INSTALL_ANSIBLE_DIR"/
 									git commit -m "Init Commit"

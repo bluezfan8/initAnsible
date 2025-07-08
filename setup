@@ -1,0 +1,221 @@
+#!/usr/bin/env bash
+
+#
+## Variables
+#
+# Pull vars from separate file
+# shellcheck disable=SC1091
+source vars.sh
+#
+## End Vars
+#
+
+#
+## Functions
+#
+
+installPipX() {
+		# `pip` is used to install `pipx`. Some distributions modified how
+		# `pip` is run. The preferred way of installing Ansible is with `pipx`
+		sudo dnf install python"$ANSIBLE_INSTALL_PYTHON_VERS" python"$ANSIBLE_INSTALL_PYTHON_VERS"-pip
+
+		# Install `pipx`
+		# Installs `pipx` to the user's home directory
+		python"$ANSIBLE_INSTALL_PYTHON_VERS" -m pip install --user pipx
+		# "ensurepath" applies the path for `pipx` to your PATH variable
+		python"$ANSIBLE_INSTALL_PYTHON_VERS" -m pipx ensurepath
+
+		# Refresh PATH variable
+		# shellcheck disable=SC1091
+		source "$HOME"/.bashrc
+}
+
+installAnsible() {
+		# Install Ansible
+		pipx install --include-deps "$ANSIBLE_INSTALL_VERSION"
+
+		while true; do
+			printf "\n%s\n%s\n%s\n%s\n\n" "Create local ansible folder(/etc/ansible), or clone Git repo: " "1. Local" "2. Git" "3. Exit"
+			read -rp "Select between the options: " localVGit
+			localVGitTr=$(printf "%s" "$localVGit" | tr '[:upper:]' '[:lower:]')
+			case "$localVGitTr" in
+				1 | local)
+					ansibleDirPrompt
+					if [ "$ansibleDirectory" == "200" ]; then
+						while true; do
+							read -rp "Init $ANSIBLE_INSTALL_ANSIBLE_DIR with Git?(y/N): " gitInit
+							gitInitTr=$(printf "%s" "$gitInit" | tr '[:upper:]' '[:lower:]')	
+							case "$gitInitTr" in
+								y | yes)
+									# Create /etc/ansible directory
+									sudo mkdir "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									# Set ownership/permission
+									sudo chown root: -R "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									sudo chmod -R 0770 "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									sudo setfacl -d -m user:"$USER":rwX "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									sudo setfacl -Rm user:"$USER":rwX "$ANSIBLE_INSTALL_ANSIBLE_DIR"		
+
+									# Create subdirectories/files in "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									mkdir "$ANSIBLE_INSTALL_ANSIBLE_DIR"/{plays,inventories,roles}
+									touch "$ANSIBLE_INSTALL_ANSIBLE_DIR"/README.md
+									touch "$ANSIBLE_INSTALL_ANSIBLE_DIR"/inventories/hosts.yml
+									ansible-config init -t all --disabled > "$ANSIBLE_INSTALL_ANSIBLE_DIR"/ansible.cfg
+
+									# Initialize Ansible directory with Git
+									#git init --shared "$ANSIBLE_INSTALL_GIT_SHARED" -b "$ANSIBLE_INSTALL_GIT_BRANCH" "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									
+									e
+									git init -b "$ANSIBLE_INSTALL_GIT_BRANCH" "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									git add "$ANSIBLE_INSTALL_ANSIBLE_DIR"/
+									git commit -m "Init Commit"
+									break
+									;;
+								n | no)
+									# Create /etc/ansible directory
+									sudo mkdir "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									# Set ownership/permission
+									sudo chown root: -R "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									sudo chmod -R 0770 "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									sudo setfacl -d -m user:"$USER":rwX "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									sudo setfacl -Rm user:"$USER":rwX "$ANSIBLE_INSTALL_ANSIBLE_DIR"		
+
+									# Create subdirectories/files in "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+									mkdir "$ANSIBLE_INSTALL_ANSIBLE_DIR"/{plays,inventories,roles}
+									touch "$ANSIBLE_INSTALL_ANSIBLE_DIR"/README.md
+									touch "$ANSIBLE_INSTALL_ANSIBLE_DIR"/inventories/hosts.yml
+									ansible-config init -t all --disabled > "$ANSIBLE_INSTALL_ANSIBLE_DIR"/ansible.cfg
+									break
+									;;
+								*)
+									printf "%s\n" "Please enter a valid(y/n) option"
+									;;
+							esac
+						done
+					else
+						# "$ANSIBLE_INSTALL_ANSIBLE_DIR" already exists. This will only set permissions
+						# on the already existing directory.
+						# Set ownership/permission
+						sudo chown root: -R "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+						sudo chmod -R 0770 "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+						sudo setfacl -d -m user:"$USER":rwX "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+						sudo setfacl -Rm user:"$USER":rwX "$ANSIBLE_INSTALL_ANSIBLE_DIR"		
+					fi
+					
+					break
+					;;
+				2 | git)
+					read -rp "Enter Git Clone URL: " gitUrl
+					echo "Git ansible: $gitUrl"
+				        
+					exit
+					#sudo git clone "$gitUrl" "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+
+					#break
+					;;
+				3 | exit) 
+					exit
+					;;
+				*)
+					printf "%s" "INVALID!!"
+			esac
+		done
+}
+
+ansibleDirPrompt() {
+	if stat "$ANSIBLE_INSTALL_ANSIBLE_DIR" > /dev/null 2>&1; then
+		read -rp "$ANSIBLE_INSTALL_ANSIBLE_DIR already exists. Destroy(y or n)?: " ansibleDirStatus
+		ansibleDirStatusTr=$(printf "%s" "$ansibleDirStatus" | tr '[:upper:]' '[:lower:]')
+		case "$ansibleDirStatusTr" in
+			y | yes)
+				sudo rm -rf "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+				ansibleDirectory=200
+				;;
+			n | no) 
+				ansibleDirectory=400
+				;;
+		esac
+	else
+		ansibleDirectory=200
+	fi
+}
+
+updateAll() {
+	if command -v python"$ANSIBLE_INSTALL_PYTHON_VERS" > /dev/null 2>&1 && python"$ANSIBLE_INSTALL_PYTHON_VERS" --version > /dev/null 2>&1; then
+		python3 -m pip install --upgrade pipx
+		pipx upgrade ansible-core
+	fi
+}
+
+## End Functions
+
+#
+## Code
+#
+
+# Used to continously loop until valid option is selected
+while true; do
+	printf "%s\n%s\n%s\n%s\n\n" "Do you need to install/update Ansible: " "1. Install" "2. Update" "3. Exit"
+	read -rp "Select ONE option(either # or option): " comm
+	commTr=$(printf "%s" "$comm" | tr '[:upper:]' '[:lower"')
+	case "$commTr" in
+		1 | install) 
+			printf "%s\n\n" "Installing Ansible..."
+			counter=0
+			while [ "$counter" -lt 2 ]; do
+				# Check if command is present, and if it is that it runs 
+				if command -v pipx > /dev/null 2>&1 && pipx --version > /dev/null 2>&1; then
+					if command -v ansible > /dev/null 2>&1 && ansible --version > /dev/null 2>&1; then
+						printf "%s\n" "Ansible already installed!"
+						exit
+					else
+						# Install Ansible vis PipX
+						installAnsible	
+						exit
+					fi
+				else
+					# Install pipx
+					installPipX
+				fi
+			done
+			break
+			;;
+		2 | update)
+			while true; do 
+				printf "%s\n%s\n%s\n%s\n%s\n\n" "Update ALL, Ansible, or PipX packages: " "1. All" "2. Ansible" "3. PipX" "4. Exit"
+				read -rp "Select ONE option(either # or option): " updateInput
+				updateInputTr=$(printf "%s" "$updateInput" | tr '[:upper:]' '[:lower:]')
+				case "$updateInputTr" in
+					1 | all)
+						updateAll
+						break
+						;;
+					2 | ansible)
+						python3 -m pip install --upgrade 
+						echo "You chose Ansible"
+						break
+						;;
+					3 | pipx)
+						echo "You chose PipX"
+						break
+						;;
+					4 | exit)
+						exit
+						;;
+					*)
+						echo "ERROR"
+						;;
+				esac
+			done
+			break
+			;;
+		3 | exit)
+			exit
+			;;
+		*)
+			echo "INVALID"
+			;;
+	esac
+done
+
+exit
+

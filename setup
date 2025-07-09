@@ -45,7 +45,7 @@ installAnsible() {
 						while true; do
 							read -rp "Init $ANSIBLE_INSTALL_ANSIBLE_DIR with Git?(y/N): " gitInit
 							gitInitTr=$(printf "%s" "$gitInit" | tr '[:upper:]' '[:lower:]')	
-							case "$gitInitTr" in
+							case "${gitInitTr:-n}" in
 								y | yes)
 									# Create /etc/ansible directory
 									sudo mkdir "$ANSIBLE_INSTALL_ANSIBLE_DIR"
@@ -63,14 +63,14 @@ installAnsible() {
 
 									# Initialize Ansible directory with Git
 									#git init --shared "$ANSIBLE_INSTALL_GIT_SHARED" -b "$ANSIBLE_INSTALL_GIT_BRANCH" "$ANSIBLE_INSTALL_ANSIBLE_DIR"
-									git config user.email "$ANSIBLE_INSTALL_GIT_USEREMAIL" --global
-									git config user.name "$ANSIBLE_INSTALL_GIT_USERNAME" --global
-									git config --global --add safe.directory /etc/ansible
-									
-	
-									git init -b "$ANSIBLE_INSTALL_GIT_BRANCH" "$ANSIBLE_INSTALL_ANSIBLE_DIR"
-									git add "$ANSIBLE_INSTALL_ANSIBLE_DIR"/
-									git commit -m "Init Commit"
+									git -C "$ANSIBLE_INSTALL_ANSIBLE_DIR" init -b "$ANSIBLE_INSTALL_GIT_BRANCH" "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+
+									git -C "$ANSIBLE_INSTALL_ANSIBLE_DIR" config user.email "$ANSIBLE_INSTALL_GIT_USEREMAIL" 
+									git -C "$ANSIBLE_INSTALL_ANSIBLE_DIR" config user.name "$ANSIBLE_INSTALL_GIT_USERNAME" 
+									git -C "$ANSIBLE_INSTALL_ANSIBLE_DIR" config --add safe.directory "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+
+									git -C "$ANSIBLE_INSTALL_ANSIBLE_DIR" add .
+									git -C "$ANSIBLE_INSTALL_ANSIBLE_DIR" commit -m "Init Commit"
 									break
 									;;
 								n | no)
@@ -103,17 +103,16 @@ installAnsible() {
 						sudo setfacl -d -m user:"$USER":rwX "$ANSIBLE_INSTALL_ANSIBLE_DIR"
 						sudo setfacl -Rm user:"$USER":rwX "$ANSIBLE_INSTALL_ANSIBLE_DIR"		
 					fi
-					
 					break
 					;;
 				2 | git)
 					read -rp "Enter Git Clone URL: " gitUrl
-					echo "Git ansible: $gitUrl"
-				        
-					exit
-					#sudo git clone "$gitUrl" "$ANSIBLE_INSTALL_ANSIBLE_DIR"
-
-					#break
+					if [ -n "$gitUrl" ]; then
+						sudo git clone "$gitUrl" "$ANSIBLE_INSTALL_ANSIBLE_DIR"
+					#else
+					#	
+					fi
+					break
 					;;
 				3 | exit) 
 					exit
@@ -193,11 +192,12 @@ while true; do
 						break
 						;;
 					2 | ansible)
-						python3 -m pip install --upgrade 
+						python3 -m pip install --upgrade pipx
 						echo "You chose Ansible"
 						break
 						;;
 					3 | pipx)
+						pipx upgrade "$ANSIBLE_INSTALL_VERSION"
 						echo "You chose PipX"
 						break
 						;;
